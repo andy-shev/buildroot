@@ -1,0 +1,6 @@
+config BR2_PACKAGE_HID_REPLAY
+	bool "hid-replay"
+	help
+	  HID recorder for Linux
+
+	  http://bentiss.github.io/hid-replay-docs/
