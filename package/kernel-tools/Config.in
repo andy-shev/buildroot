@@ -1,0 +1,4 @@
+config BR2_PACKAGE_KERNEL_TOOLS
+	bool "kernel-tools"
+	help
+	  Build tools listed in BOARD_INTEL_KERNEL_TOOLS
