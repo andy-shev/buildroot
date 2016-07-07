@@ -1,0 +1,18 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# BOARD_INTEL_CUSTOM_CMDLINE	- Provides an addition to the default kernel
+#				  command line
+#
+
+[ -n "$BOARD_INTEL_CUSTOM_CMDLINE" ] || exit 0
+
+# Append custom part of cmdline
+echo "$(cat "$BINARIES_DIR/cmdline") $BOARD_INTEL_CUSTOM_CMDLINE" > "$BINARIES_DIR/cmdline"

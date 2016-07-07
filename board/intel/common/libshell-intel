@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# BOARD_INTEL_DIR		- Directory holding board specific
+#				  configuration
+#
+
+# Use this folder to provide board specific files
+BOARD_DIR_DEFAULT="$(dirname $(dirname "$0"))"
+[ -n "$BOARD_INTEL_DIR" ] && BOARD_DIR_USER="$BOARD_INTEL_DIR" || BOARD_DIR_USER="$BOARD_DIR_DEFAULT"
+BOARD_DIR="$(readlink -mnq "$BOARD_DIR_USER")"
+
+[ -d "$BOARD_DIR" ] || echo "Warning: '$BOARD_DIR' does not exist!"
+
+# Looking up for a custom file if provided, otherwise fallback to the original name
+intel_file_lookup() {
+	[ -f "$BOARD_DIR/$1" ] && echo "$BOARD_DIR/$1" || echo "$BOARD_DIR_DEFAULT/$1"
+}
+
+# Looking up for a custom folder if provided, otherwise fallback to the original name
+intel_folder_lookup() {
+	[ -d "$BOARD_DIR/$1" ] && echo "$BOARD_DIR/$1" || echo "$BOARD_DIR_DEFAULT/$1"
+}
+
+# Check for non-default board name
+intel_check_board_name() {
+	[ "$BOARD_DIR_USER" = "$BOARD_DIR_DEFAULT" ] || return 0
+	echo "You are not supposed to use $BOARD_DIR_DEFAULT as board here!"
+	return 1
+}
+
+# Get board name from $BOARD_DIR
+intel_get_board_name() {
+	basename "$BOARD_DIR"
+}

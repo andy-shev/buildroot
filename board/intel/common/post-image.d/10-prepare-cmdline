@@ -1,0 +1,31 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# BR2_TARGET_GENERIC_GETTY_PORT		- set console port
+#
+
+PROG_NAME="${0##*/}"
+PROG_DIR="${0%/*}"
+
+. $PROG_DIR/../libshell-intel
+
+# Assign default console which should be the same as provided in cmdline
+console_default="ttyS0"
+console="${BR2_TARGET_GENERIC_GETTY_PORT:-$console_default}"
+
+# Assign default baudrate
+baudrate_default="115200"
+baudrate="${BR2_TARGET_GENERIC_GETTY_BAUDRATE:-$baudrate_default}"
+
+# Get initial cmdline
+cmdline="$(intel_file_lookup "cmdline")"
+
+# Read cmdline and modify console parameter
+sed -e "s#$console_default#$console#; s#$baudrate_default#$baudrate#;" "$cmdline" > "$BINARIES_DIR/cmdline"
