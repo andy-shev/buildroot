@@ -1,0 +1,28 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# BOARD_INTEL_LEAVE_MODULES	- If defined, the modules from previous kernel
+#				  will be left untouched. Otherwise cleans up
+#				  /lib/modules folder completely.
+#
+# KERNEL_SRC			- Directory holding output of Linux kernel
+#				  build. If defined, it will be used to install
+#				  kernel modules from.
+#
+
+# Leave old modules in the /lib/modules folder if asked
+[ -z "$BOARD_INTEL_LEAVE_MODULES" ] && rm -rf $TARGET_DIR/lib/modules/*
+
+# Install kernel modules
+[ -d "$KERNEL_SRC" ] && {
+	make -C "$KERNEL_SRC" INSTALL_MOD_PATH="$1" INSTALL_MOD_STRIP=1 modules_install || /bin/true
+} || {
+	echo "Export KERNEL_SRC in order to install kernel modules"
+}
