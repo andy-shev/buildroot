@@ -1,0 +1,15 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# None
+#
+
+# Link to the initial ramfs image as stated in intel_defconfig
+ln -sf "rootfs.cpio.bz2" "$BINARIES_DIR/initrd"
