@@ -41,6 +41,11 @@ The resulting image is placed under output/images and is called either
 ``rootfs.cpio.bz2`` or ``initrd``. ``initrd`` is the link to the last modified
 image since some scripts may alter it on post image stage.
 
+5) Find disk image if asked for.
+
+When `BOARD_INTEL_DISK_IMAGE`_ is specified the resulting image will be called
+either ``<BOARD>.img`` or ``diskimage.img``, which is link to the previous.
+
 Supported environment variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -62,6 +67,15 @@ BOARD_INTEL_CUSTOM_CMDLINE
 
 BOARD_INTEL_DIR
 	points to a specific board directory.
+
+_`BOARD_INTEL_DISK_IMAGE`
+
+BOARD_INTEL_DISK_IMAGE
+	if set, the disk image will be created.
+
+BOARD_INTEL_EFIBIN
+	path to a folder that contains a custom EFI binary, i.e.
+	``bootia32.efi`` or ``bootx64.efi``, that is started at boot time.
 
 BOARD_INTEL_NETBOOT
 	if set, netbooting is enabled.

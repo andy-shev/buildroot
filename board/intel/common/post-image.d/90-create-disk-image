@@ -1,0 +1,210 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# BOARD_INTEL_DISK_IMAGE		- Run the script only when this variable is set
+#
+# BOARD_INTEL_EFIBIN		- Directory holding binaries of EFI shell, i.e.
+#				  bootia32.efi and bootx64.efi
+#
+# KERNEL_SRC (mandatory)	- Directory holding output of Linux kernel
+#				  build. It will be used to look for Linux
+#				  kernel binary.
+#
+
+PROG_NAME="${0##*/}"
+PROG_DIR="${0%/*}"
+
+. $PROG_DIR/../libshell-intel
+
+# Derive board, image, and link names from the pathname
+board_name="${BOARD_DIR##*/}"
+image_name="${board_name}.bin"
+link_name="diskimage.bin"
+
+# Full file names of output files
+image="$BINARIES_DIR/$image_name"
+link="$BINARIES_DIR/$link_name"
+
+# Clean up previous image link
+rm -f "$link"
+
+# Skip the script until user explicitly asks for it
+[ -n "$BOARD_INTEL_DISK_IMAGE" ] || exit 0
+
+# Use this folder to provide EFI Shell
+efibin_default="$(intel_folder_lookup "efi")"
+efibin="${BOARD_INTEL_EFIBIN:-$efibin_default}"
+
+# Additional EFI applications in the above folder
+efiapp="${BOARD_INTEL_EFIAPP}"
+
+# Full file names of input files
+kernel="$KERNEL_SRC/arch/x86/boot/bzImage"
+initrd="$(readlink -enq "$BINARIES_DIR/initrd")"
+cmdline="$(readlink -enq "$BINARIES_DIR/cmdline")"
+
+# Read contents of command line
+cmdline_str="$(cat "$cmdline")"
+
+#
+# Print information
+#
+print_information() {
+	local name="$1"; shift
+
+	echo "Stitching $name disk image using"
+	echo "  cmdline	$cmdline"
+	echo "  => \"$cmdline_str\""
+	echo "  kernel	$kernel"
+	echo "  initrd	$initrd"
+
+	[ -d "$efibin" ] && echo "  UEFI binary	$efibin" || echo "No UEFI binaries provided"
+}
+
+#
+# Finalize image
+#
+finalize_image() {
+	local name="$1"; shift
+	local image="$1"; shift
+	local link="$1"; shift
+
+	# Update link to the recently created image
+	ln -f "$image" "$link"
+
+	echo "Image $name is ready"
+}
+
+# The additional tools, like parted and mkfs.vfat, are located in /sbin.
+# Regular user usually has no such folder in the PATH. Let's add it here.
+export PATH=$PATH:/usr/local/sbin:/sbin
+
+print_information "$board_name"
+
+#
+# Size of EFI parts
+#
+efi_size=0
+[ -d "$efibin" ] && {
+	for efi in bootia32.efi bootx64.efi $efiapp; do
+		efi_size=$(($efi_size + $(stat --format="%s" "$efibin/$efi")))
+	done
+}
+
+#
+# Size of the image is kernel + initrd + spare
+#
+spare=$((4 * 1024 * 1024))
+kernel_size=$(stat --format="%s" $kernel)
+initrd_size=$(stat --format="%s" $initrd)
+
+#
+# Estimated size of the image
+#
+size=$(($kernel_size + $initrd_size + $efi_size + $spare))
+blocks=$(($size / (16 * 1024) + 1))
+
+# Temporary storage for intermediate filesystem image
+dosfs="${image}.dosfs"
+
+# Prepare FAT32 partition
+dd if=/dev/zero of=$dosfs bs=16k count=$blocks >/dev/null 2>&1
+mkfs.vfat $dosfs >/dev/null 2>&1
+
+#
+# Copy the kernel and initrd in place.
+#
+mcopy -i $dosfs $kernel ::vmlinuz.efi
+mcopy -i $dosfs $initrd ::initrd
+
+#
+# Make configuration file for syslinux and copy it under /boot in the
+# filesystem.
+#
+mmd -i $dosfs ::boot
+mcopy -i $dosfs - ::boot/syslinux.cfg << EOF
+default linux
+timeout 3000
+
+label linux
+  kernel /vmlinuz.efi
+  initrd /initrd
+  append $cmdline_str
+EOF
+
+# Create grub.conf
+mmd -i $dosfs ::boot/grub
+mcopy -i $dosfs - ::boot/grub/grub.conf << EOF
+default 0
+timeout 3
+
+title linux
+  root (hd0,0)
+  kernel /vmlinuz.efi $cmdline_str
+  initrd /initrd
+EOF
+
+#
+# Copy whatever EFI binary was specified in the command line
+#
+[ -d "$efibin" ] && {
+	mmd -i $dosfs ::EFI
+	mmd -i $dosfs ::EFI/BOOT
+	for efi in bootia32.efi bootx64.efi $efiapp; do
+		efinoext=$(basename $efi .efi)
+		[ "$efi" = "$efinoext" ] && {
+			echo "Wrong file extension in $efi, skipping..."
+			continue
+		}
+		if [ $(printf "$efinoext" | wc -c) -gt 8 ]; then
+			echo "Copying $efi to EFI partition..."
+			mcopy -i $dosfs $efibin/$efi ::EFI/BOOT/$efi
+		else
+			efiupper="$(echo $efinoext | tr '[:lower:]' '[:upper:]').efi"
+			echo "Copying $efi as $efiupper to EFI partition..."
+			mcopy -i $dosfs $efibin/$efi ::EFI/BOOT/$efiupper
+		fi
+	done
+}
+
+#
+# Create the startup.nsh script for EFI boot
+#
+mcopy -i $dosfs - ::startup.nsh << EOF
+vmlinuz.efi initrd=initrd $cmdline_str
+EOF
+
+#
+# Install the syslinux to the filesystem.
+#
+syslinux --install -d /boot $dosfs
+
+#
+# Prepare the disk image.
+#
+dd if=/dev/zero of=$image bs=512 seek=0 count=1  > /dev/null 2>&1 # Hybrid MBR
+dd if=/dev/zero of=$image bs=512 seek=1 count=1  > /dev/null 2>&1 # GPT header
+dd if=/dev/zero of=$image bs=512 seek=2 count=32 > /dev/null 2>&1 # GPT
+
+# Provisioning of the partition.
+dd if=$dosfs of=$image bs=512 seek=34 > /dev/null 2>&1
+
+#
+# Make a new DOS partition with Hybrid MBR for the filesystem.
+#
+/sbin/sgdisk -a 1 -n 1:34: -t 1:0700 -A 1:set:2 -h 1 $image > /dev/null 2>&1
+
+# Copy GPT MBR code
+dd if=/usr/lib/syslinux/mbr/gptmbr.bin of=$image bs=1 seek=0 conv=notrunc > /dev/null 2>&1
+
+# Set 'active" flag for partition 2 on protective MBR (sgdisk may not do this)
+printf '\200' | dd of=$image bs=1 seek=462 conv=notrunc > /dev/null 2>&1
+
+finalize_image "$image_name" "$image" "$link"
