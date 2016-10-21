@@ -17,9 +17,6 @@ BR2_ROOTFS_POST_BUILD_SCRIPT="board/intel/common/post-build.sh"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="board/intel/common/post-image.sh"
 BR2_ROOTFS_POST_SCRIPT_ARGS=""
 
-# Busybox utilities (target)
-BR2_PACKAGE_BUSYBOX_WATCHDOG=y
-
 # Packages
 BR2_PACKAGE_KEXEC=y
 BR2_PACKAGE_KEXEC_ZLIB=y
