@@ -1,0 +1,82 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# BOARD_INTEL_ACPI_TABLES	- ASL files to build separated by spaces
+#
+# BOARD_INTEL_DIR		- Directory holding board specific
+#				  configuration. Should contain directory
+#				  called "acpi" which holds the ASL tables.
+#
+# For example following variables compile ACPI SSDTs for Intel Joule.
+#
+# BOARD_INTEL_DIR="board/intel/joule"
+# BOARD_INTEL_ACPI_TABLES="at25.asl spidev.asl"
+#
+
+PROG_NAME="${0##*/}"
+PROG_DIR="${0%/*}"
+
+. $PROG_DIR/../libshell-intel
+
+ACPI_TABLES="$BOARD_INTEL_ACPI_TABLES"
+ACPI_DIR="$(intel_folder_lookup "acpi")"
+
+TABLES_TMPDIR="acpi-tables"
+TABLES_SUBDIR="kernel/firmware/acpi"
+
+# Clean up previous installation
+rm -rf $TARGET_DIR/$TABLES_TMPDIR
+
+# Clean up cached temporary files
+rm -rf $BINARIES_DIR/$TABLES_TMPDIR
+
+[ -d "$ACPI_DIR" ] || exit 0
+
+# Pick iASL.
+# First try from buildroot and if not there then try from the host.
+[ -x "$HOST_DIR/usr/bin/iasl" ] && iasl="$HOST_DIR/usr/bin/iasl" || iasl=$(which iasl)
+
+[ -x "$iasl" ] || {
+	echo "You need to to have iASL compiler available. You can either enable"
+	echo "BR2_PACKAGE_HOST_ACPICA or install it locally for your host."
+	echo "Typically the package is called acpica-tools in major distros".
+	exit 1
+}
+
+intel_check_board_name || {
+	echo "Adding ACPI tables is always specific to a board!"
+	exit 1
+}
+
+board_name="$(intel_get_board_name)"
+tmpamldir="$BINARIES_DIR/$TABLES_TMPDIR"
+
+mkdir -p $tmpamldir/$TABLES_SUBDIR
+
+for table in $(find "$ACPI_DIR" -mindepth 1 -maxdepth 1 -type f -name "*.asl"); do
+	$iasl -p "$tmpamldir/$TABLES_SUBDIR/$(basename $table)" "$table" > /dev/null 2>&1
+	echo "ACPI: Compiling ASL from $(realpath --relative-to=$PWD $table)..."
+done
+
+# Exit if no tables were compiled
+[ -n "$(find $tmpamldir -type f)" ] || {
+	echo "ACPI: No tables were compiled"
+	exit 0
+}
+
+# Copy ACPI tables for run-time use via ConfigFS
+cp -ar $tmpamldir/$TABLES_SUBDIR $TARGET_DIR/$TABLES_TMPDIR
+
+# Remove tables that are not listed in $ACPI_TABLES
+find $tmpamldir/$TABLES_SUBDIR -type f | while read table; do
+	echo $ACPI_TABLES | grep -q -w "$(basename "$table" .aml).asl" || rm -f "$table"
+done
+
+echo "ACPI: Compiled ASLs have been copied to $TABLES_TMPDIR"

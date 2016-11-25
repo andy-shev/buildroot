@@ -1,0 +1,38 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+PROG_NAME="${0##*/}"
+PROG_DIR="${0%/*}"
+
+. $PROG_DIR/../libshell-intel
+
+TABLES_TMPDIR="acpi-tables"
+
+board_name="$(intel_get_board_name)"
+tmpamldir="$BINARIES_DIR/$TABLES_TMPDIR"
+
+# Exit if no tables were prepared
+[ -n "$(test -d $tmpamldir && find $tmpamldir -type f)" ] || {
+	echo "ACPI: No tables were prepared"
+	exit 0
+}
+
+# Always prefix with the board name to avoid mistakes if the initrd is used
+# with another board.
+updated_initrd_name="${board_name}-acpi-rootfs.cpio"
+updated_initrd="$BINARIES_DIR/$updated_initrd_name"
+initrd="$(readlink -enq "$BINARIES_DIR/initrd")"
+
+# Attach compiled tables to initrd
+(
+	cd $tmpamldir
+	find kernel | cpio -H newc -o > $updated_initrd 2>/dev/null
+	cat $initrd >> $updated_initrd
+	ln -sf "$updated_initrd_name" "$BINARIES_DIR/initrd"
+)
+
+echo "ACPI: Created initrd with updated ACPI tables in $(realpath --relative-to=$PWD $updated_initrd)"

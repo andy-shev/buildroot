@@ -52,6 +52,11 @@ like::
 
 in order to take advantage of these.
 
+_`BOARD_INTEL_ACPI_TABLES`
+
+BOARD_INTEL_ACPI_TABLES
+	list of table names to built into the ``initrd``.
+
 BOARD_INTEL_CUSTOM_CMDLINE
 	provides a custom appendix to the command line.
 
@@ -67,6 +72,26 @@ Alter console
 By default ``ttyS0`` is used as a default console for both kernel and
 user space. The **BR2_TARGET_GENERIC_GETTY_PORT** variable could be used
 to alter this setting.
+
+Adding custom ACPI SSDT tables
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can add additional ACPI tables to the ``initrd`` (think of device tree
+overlays) if you need to have some special devices for example. The ASL files
+should be stored in board specific directories as they vary from one board to
+another. Below we add SPI test device for Intel `Joule`_ board::
+
+	% make KERNEL_SRC=~/linux BR2_TARGET_GENERIC_GETTY_PORT=ttyS2	\
+				  BOARD_INTEL_DIR=board/intel/joule	\
+				  BOARD_INTEL_ACPI_TABLES=spidev.asl
+
+The resulting image is called ``output/images/joule-acpi-rootfs.cpio``.
+If the disk image creation is asked it will contain the tables as well.
+
+Note, that the `BOARD_INTEL_ACPI_TABLES`_ is optional and in the resulting
+image you will always get all ASL excerpts compiled and copied to
+``acpi-tables`` folder in the root of file system. They can be loaded via
+ConfigFS mechanism at run-time.
 
 Supported boards
 ~~~~~~~~~~~~~~~~
