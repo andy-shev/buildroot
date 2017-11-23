@@ -1,0 +1,45 @@
+From b59088ab14fb9c336414e2c9b27a9f5b7447ce5b Mon Sep 17 00:00:00 2001
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Thu, 23 Nov 2017 19:33:08 +0200
+Subject: [PATCH v1] libbb: Try /dev/rtc0 first followed by /dev/rtc
+
+In case we run
+
+% rtcwake -s5 -mmem
+
+in udev environment we will get an error:
+
+rtcwake: /dev/rtc not enabled for wakeup events
+
+because /dev/rtc is a symlink to /dev/rtc0 in Buildroot and other Linux
+distributions (like Fedora) and make_wakeup() obviously fails.
+
+As a quick fix just reorder probe of device nodes to try /dev/rtc0
+first.
+
+The proper solution, of course much expensive by code footprint,
+is to resolve /dev/rtc to a proper device node and then
+to follow sysfs attributes.
+
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ libbb/rtc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libbb/rtc.c b/libbb/rtc.c
+index c4117ba34..e087a8fd6 100644
+--- a/libbb/rtc.c
++++ b/libbb/rtc.c
+@@ -64,8 +64,8 @@ int FAST_FUNC rtc_xopen(const char **default_rtc, int flags)
+ {
+ 	int rtc;
+ 	const char *name =
+-		"/dev/rtc""\0"
+ 		"/dev/rtc0""\0"
++		"/dev/rtc""\0"
+ 		"/dev/misc/rtc""\0";
+ 
+ 	if (!*default_rtc)
+-- 
+2.15.0
+
