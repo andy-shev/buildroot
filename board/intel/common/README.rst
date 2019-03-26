@@ -114,6 +114,10 @@ image you will always get all ASL excerpts compiled and copied to
 ``acpi-tables`` folder in the root of file system. They can be loaded via
 ConfigFS mechanism at run-time.
 
+Currently we provide snapshot of examples from `meta-acpi`_ project.
+
+.. _`meta-acpi`: https://github.com/westeri/meta-acpi
+
 Supported boards
 ~~~~~~~~~~~~~~~~
 
