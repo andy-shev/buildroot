@@ -71,7 +71,8 @@ BOARD_INTEL_DIR
 _`BOARD_INTEL_DISK_IMAGE`
 
 BOARD_INTEL_DISK_IMAGE
-	if set, the disk image will be created.
+	if set, the disk image will be created. It can have special meaning
+	for some devices like `ChromeBook`_.
 
 BOARD_INTEL_EFIBIN
 	path to a folder that contains a custom EFI binary, i.e.
@@ -138,6 +139,10 @@ Examples
 
 	% make KERNEL_SRC=~/linux BR2_TARGET_GENERIC_GETTY_PORT=ttyPCH0
 
+- _`ChromeBook` ChromeBook (vboot)::
+
+	% make KERNEL_SRC=~/linux BOARD_INTEL_DISK_IMAGE=chromeos
+
 .. [#] Minnowboard MAX or Turbot goes the standard way with ``ttyS0``.
 
 Flash netboot image
@@ -168,3 +173,21 @@ Then, run the commands::
 	saveenv
 
 When the above is done, either reboot the device or run via ``boot`` command.
+
+Google ChromeBook
+~~~~~~~~~~~~~~~~~
+In order to build an image for ChromeOS you need to enable following in
+your ``.config``::
+
+	BR2_PACKAGE_HOST_VBOOT_UTILS=y
+	BR2_TARGET_ROOTFS_EXT2=y
+
+Note, [intel_defconfig]_ contains them already.
+
+Then you build the image like::
+
+	% make KERNEL_SRC=~/linux BOARD_INTEL_DISK_IMAGE=chromeos
+
+The resulting common.bin can then be written to USB memory stick using
+standard tools. Note overwriting ACPI tables via ``initrd`` mechanism
+is not currently supported with ChromeOS.

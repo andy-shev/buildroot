@@ -8,7 +8,9 @@
 #
 # Environment:
 #
-# BOARD_INTEL_DISK_IMAGE		- Run the script only when this variable is set
+# BOARD_INTEL_DISK_IMAGE	- Run the script only when this variable
+#				  is set. Set to "chromeos" to build
+#				  ChromeOS image instead.
 #
 # BOARD_INTEL_EFIBIN		- Directory holding binaries of EFI shell, i.e.
 #				  bootia32.efi and bootx64.efi
@@ -81,6 +83,81 @@ finalize_image() {
 
 	echo "Image $name is ready"
 }
+
+#
+# Make an image for Google ChromeBook devices
+#
+run_vboot_utils() {
+	local kernel_blob="${image}.kernel"
+	local keysdir=$HOST_DIR/share/vboot/devkeys
+	local keyblock=$keysdir/recovery_kernel.keyblock
+	local privkey=$keysdir/recovery_kernel_data_key.vbprivk
+	local rootfs="$BINARIES_DIR/rootfs.ext2"
+
+	cmdline_str="$cmdline_str root=PARTLABEL=ROOTFS rootwait"
+
+	print_information "ChromeOS"
+
+	# Dummy file to shut up vbutil_kernel
+	local bootloaderf=$(mktemp -q -t bootloader-XXXXXX)
+	echo > "$bootloaderf"
+
+	local cmdlinef=$(mktemp -q -t cmdline-XXXXXX)
+	echo $cmdline_str > $cmdlinef
+
+	$HOST_DIR/usr/bin/vbutil_kernel --pack $kernel_blob		\
+					--keyblock $keyblock		\
+					--signprivate $privkey		\
+					--version 1			\
+					--bootloader $bootloaderf	\
+					--config $cmdlinef		\
+					--vmlinuz $kernel
+
+	rm -f $bootloaderf
+	rm -f $cmdlinef
+
+	# Calculate size of the image
+	local kernel_size=$(($(stat --format="%s" $kernel_blob) + (2 * 1024 * 1024)))
+	local kernel_size_s=$((kernel_size / 512))
+
+	local rootfs_size=$(($(stat --format="%s" $rootfs) + (8 * 1024 * 1024)))
+	local rootfs_size_s=$((rootfs_size / 512))
+
+	local spare_s=$(((2 * 1024 * 1024) / 512))
+	local image_size_s=$((kernel_size_s + rootfs_size_s + spare_s))
+
+	dd if=/dev/zero of=$image bs=512 count=$image_size_s 2>/dev/null
+
+	parted -s $image mklabel gpt
+
+	$HOST_DIR/usr/bin/cgpt create $image
+
+	# Skip over the first block
+	local kernel_offset=64
+	$HOST_DIR/usr/bin/cgpt add			\
+			-b $kernel_offset		\
+			-s $kernel_size_s		\
+			-t kernel -l "KERNEL"		\
+			$image -P 15 -T 15 -S 1
+
+	local rootfs_offset=$((kernel_offset + kernel_size_s))
+	$HOST_DIR/usr/bin/cgpt add			\
+			-b $rootfs_offset		\
+			-s $rootfs_size_s		\
+			-t rootfs -l "ROOTFS"		\
+			$image
+
+	dd if=$kernel_blob of=$image bs=512 seek=$kernel_offset conv=notrunc count=$kernel_size_s 2>/dev/null
+	dd if=$rootfs of=$image bs=512 seek=$rootfs_offset conv=notrunc count=$rootfs_size_s 2>/dev/null
+
+	finalize_image "$image_name" "$image" "$link"
+	exit 0
+}
+
+case "$BOARD_INTEL_DISK_IMAGE" in
+	chromeos|chrome) run_vboot_utils ;;
+	*) ;;
+esac
 
 # The additional tools, like parted and mkfs.vfat, are located in /sbin.
 # Regular user usually has no such folder in the PATH. Let's add it here.
