@@ -1,0 +1,17 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# BOARD_INTEL_NETBOOT		- Run the script only when this variable is set
+#
+
+[ -n "$BOARD_INTEL_NETBOOT" ] || exit 0
+
+# Append parameters specific for netboot
+echo "$(cat "$BINARIES_DIR/cmdline") netboot quiet" > "$BINARIES_DIR/cmdline"

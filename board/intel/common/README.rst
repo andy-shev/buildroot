@@ -48,7 +48,7 @@ The scripts under ``board/intel/common`` accept several environment variables
 that can be used to alter the default behaviour. Typically you do something
 like::
 
-	% make KERNEL_SRC=~/linux
+	% make KERNEL_SRC=~/linux BOARD_INTEL_NETBOOT=y
 
 in order to take advantage of these.
 
@@ -62,6 +62,12 @@ BOARD_INTEL_CUSTOM_CMDLINE
 
 BOARD_INTEL_DIR
 	points to a specific board directory.
+
+BOARD_INTEL_NETBOOT
+	if set, netbooting is enabled.
+
+BOARD_MAC_ADDRESS
+	provides custom MAC address if netbooting is enabled.
 
 KERNEL_SRC
 	path to your kernel output folder.
@@ -119,3 +125,32 @@ Examples
 	% make KERNEL_SRC=~/linux BR2_TARGET_GENERIC_GETTY_PORT=ttyPCH0
 
 .. [#] Minnowboard MAX or Turbot goes the standard way with ``ttyS0``.
+
+Flash netboot image
+-------------------
+
+Some boards require to flash the netboot image to eMMC or another special care.
+There are instruction how to do it.
+
+Intel Edison
+~~~~~~~~~~~~
+
+You have to flash the stock image first. After you get it flashed, boot it in
+the OS and connect to the host machine in the USB Mass Storage mode. Upload the
+boot stick image as usual.
+
+When previous is done reboot to U-boot menu and add the following environment
+variables::
+
+	boot_netboot=zboot 0x100000 0 0x6000000 0x1800000
+	bootargs_netboot=console=tty1 console=ttyS2,115200n8 rootfstype=ramfs rw netboot quiet
+	bootcmd_netboot=setenv bootargs ${bootargs_netboot}; run load_netboot; run boot_netboot
+	load_netboot=load mmc 0:9 0x100000 vmlinuz.efi; load mmc 0:9 0x1800000 initrd
+
+Then, run the commands::
+
+	setenv bootcmd_orig ${bootcmd}
+	setenv bootcmd ${bootcmd_netboot}
+	saveenv
+
+When the above is done, either reboot the device or run via ``boot`` command.
