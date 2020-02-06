@@ -1,0 +1,69 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+
+pidfile=/var/run/udhcpc.pid
+ethfile=/var/run/udhcpc.eth
+macaddr="$MAC_ADDRESS"
+
+discover_connected_eth() {
+	cat /dev/null > $ethfile
+
+	# Wait until the interface has come up
+	for pass in $(seq 3); do
+		for eth in $(find /sys/class/net -type l -name 'eth*' -exec basename {} \;); do
+			# Set MAC address if requested by the user
+			test -n "$macaddr" && /sbin/ip link set $eth addr $macaddr
+
+			# Bring up interface
+			/sbin/ip link set dev $eth up
+
+			local state=$(cat /sys/class/net/$eth/operstate)
+			if [ "$state" = "up" ]; then
+				echo $eth > $ethfile
+				return 0
+			fi
+		done
+		sleep 5
+	done
+	return 1
+}
+
+run_dhcp_client() {
+	discover_connected_eth
+
+	local eth="$(cat $ethfile)"
+
+	[ -z "$eth" ] && return 1
+
+	/sbin/udhcpc -i $eth -s /sbin/udhcpc-script.sh -B -t 6 -T 5 -O bootfile -b -p $pidfile
+}
+
+case "$1" in
+  start)
+	echo "Starting udhcpc..."
+
+	# Check if netbooting is enabled
+	grep -w 'netboot' /proc/cmdline || exit 3
+
+	run_dhcp_client
+	;;
+
+  enforce)
+	run_dhcp_client
+	;;
+
+  reload)
+	echo "Reloading udhcpc..."
+	kill -USR1 $(cat $pidfile)
+	;;
+
+  stop)
+	echo "Stopping udhcpc..."
+	kill -TERM $(cat $pidfile)
+	;;
+  *)
+	echo "Usage: $0 {start|enforce|reload|stop}"
+	exit 1
+esac
+
+exit $?

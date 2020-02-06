@@ -1,0 +1,45 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0
+
+#
+# Copyright (c) 2016 Intel Corp.
+#
+
+#
+# Environment:
+#
+# BOARD_INTEL_DIR		- Directory holding board specific
+#				  configuration
+#
+# BOARD_INTEL_NETBOOT		- Run the script only when this variable is set
+#
+# BOARD_MAC_ADDRESS		- Override eth0 MAC address by the supplied one
+#
+
+# Clean up previous installation
+rm -f $TARGET_DIR/etc/init.d/S99netboot
+rm -f $TARGET_DIR/sbin/udhcpc-script.sh
+
+# Skip the script until user explicitly asks for it
+[ -n "$BOARD_INTEL_NETBOOT" ] || exit 0
+
+# Use this folder to provide board specific files
+board_dir_default="$(dirname $(dirname "$0"))"
+board_dir="${BOARD_INTEL_DIR:-$board_dir_default}"
+
+# Looking up for a custom folder if provided, otherwise fallback to the original name
+folder_lookup() {
+	[ -d "$board_dir/$1" ] && echo "$board_dir/$1" || echo "$board_dir_default/$1"
+}
+
+# Use this folder to provide netboot scripts
+netboot="$(folder_lookup "netboot")"
+
+# Install netboot support
+install -m 755 $netboot/S99netboot $TARGET_DIR/etc/init.d
+install -m 755 $netboot/udhcpc-script.sh $TARGET_DIR/sbin
+
+# Use custom MAC address in the S99netboot script if provided
+if [ -n "$BOARD_MAC_ADDRESS" ]; then
+	sed -i -e "s/\$MAC_ADDRESS/$BOARD_MAC_ADDRESS/g" $TARGET_DIR/etc/init.d/S99netboot
+fi
