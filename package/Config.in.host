@@ -1,6 +1,7 @@
 menu "Host utilities"
 
 	source "package/abootimg/Config.in.host"
+	source "package/acpica/Config.in.host"
 	source "package/aespipe/Config.in.host"
 	source "package/android-tools/Config.in.host"
 	source "package/asn1c/Config.in.host"
