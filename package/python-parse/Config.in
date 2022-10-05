@@ -1,0 +1,6 @@
+config BR2_PACKAGE_PYTHON_PARSE
+	bool "python-parse"
+	help
+	  parse() is the opposite of format().
+
+	  https://github.com/r1chardj0n3s/parse
