@@ -1,0 +1,12 @@
+config BR2_PACKAGE_HID_TOOLS
+	bool "hid-tools"
+	select BR2_PACKAGE_PYTHON_PARSE
+	select BR2_PACKAGE_PYTHON_LIBEVDEV
+	depends on BR2_PACKAGE_PYTHON_PYUDEV
+	help
+	  Add HID (Human Input Devices) debugging tools for linux kernel.
+
+	  https://gitlab.freedesktop.org/libevdev/hid-tools
+
+comment "hid-tools requires python-pyudev"
+	depends on !BR2_PACKAGE_PYTHON_PYUDEV
