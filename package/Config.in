@@ -2452,6 +2452,7 @@ endif
 	source "package/dhcp/Config.in"
 	source "package/dhcpcd/Config.in"
 	source "package/dhcpdump/Config.in"
+	source "package/diod/Config.in"
 	source "package/dnsmasq/Config.in"
 	source "package/drbd-utils/Config.in"
 	source "package/dropbear/Config.in"
