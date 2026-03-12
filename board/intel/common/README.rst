@@ -88,6 +88,9 @@ BOARD_MAC_ADDRESS
 KERNEL_SRC
 	path to your kernel output folder.
 
+NVIDIA_SRC
+	path to properietary NVIDIA driver sources
+
 Alter console
 ~~~~~~~~~~~~~
 
@@ -170,3 +173,31 @@ Then, run the commands::
 	saveenv
 
 When the above is done, either reboot the device or run via ``boot`` command.
+
+NVIDIA proprietary driver
+~~~~~~~~~~~~~~~~~~~~~~~~~
+In case you need to pull in NVIDIA proprietary driver for any testing
+you can do so by cloning the open-source repository:
+
+	https://github.com/NVIDIA/open-gpu-kernel-modules.git
+
+Then build the open-source driver using your kernel:
+
+	% cd devel/open-gpu-kernel-modules
+	% make SYSSRC=$KERNEL_SRC -j$(nproc)
+
+Then download the matching latest driver blob. As of this writing it's
+595.45.04:
+
+	https://www.nvidia.com/en-us/drivers/unix/
+
+and extract the firmwares:
+
+	% sh NVIDIA-Linux-x86_64-595.45.04.run --extract-only
+	% cp NVIDIA-Linux-x86_64-595.45.04/firmware/*.bin ~/buldroot/output/target/lib/firmware/nvidia/595.45.04/
+(you may need to create the directories).
+
+Then on the buildroot root directory build the image with `NVIDIA_SRC=`
+added:
+
+	% make KERNEL_SRC=~linux NVIDIA_SRC=~/devel/open-gpu-kernel-modules BOARD_INTEL_DISK_IMAGE=y
